@@ -270,7 +270,7 @@ namespace ID3
                 return;
                 throw new Exception("best gain == " + bestSplitGain);
             }
-
+            Console.WriteLine(bestSplitGain);
             this.SplitAttribute = bestSplitAttribute;
             foreach (var set in bestSplit)
             {
@@ -420,14 +420,14 @@ namespace ID3
             for (int i = 0; i < 3; i++)
             {
                 item = new Item();
-                item.Attributes.Add("1", new DiscreteAttribute<int>("1", 0));
+                item.Attributes.Add("1", new DiscreteAttribute<int>("1", i));
                 set.Items.Add(item);
             }
 
             for (int i = 0; i < 2; i++)
             {
                 item = new Item();
-                item.Attributes.Add("1", new DiscreteAttribute<int>("1", 1));
+                item.Attributes.Add("1", new DiscreteAttribute<int>("1", i + 10));
                 set.Items.Add(item);
             }
 
@@ -538,7 +538,7 @@ namespace ID3
                 }
             }
 
-            Console.WriteLine(Utility.Entropy(resSet, "decision(category)"));
+            //Console.WriteLine(Utility.Entropy(resSet, "decision(category)"));
 
             Node root = new Node();
             root.Data = resSet;
