@@ -1,9 +1,13 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 14
-VisualStudioVersion = 14.0.23107.0
+# Visual Studio Express 14 for Windows Desktop
+VisualStudioVersion = 14.0.24720.0
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ID3", "ID3\ID3.csproj", "{549B1166-9E21-43D6-B439-2E7225408325}"
+	ProjectSection(ProjectDependencies) = postProject
+		{F2F0930A-8C3C-4163-9D0A-413625E92327} = {F2F0930A-8C3C-4163-9D0A-413625E92327}
+		{7C2E2227-7F8C-476C-8E9A-2EC8A84770A6} = {7C2E2227-7F8C-476C-8E9A-2EC8A84770A6}
+	EndProjectSection
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TreeUI", "TreeUI\TreeUI.csproj", "{F2F0930A-8C3C-4163-9D0A-413625E92327}"
 EndProject

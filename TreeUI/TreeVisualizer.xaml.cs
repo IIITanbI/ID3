@@ -128,7 +128,7 @@ namespace TreeUI
                     leftWidth += GetWidth(node.Nodes[i]);
 
                     //space
-                    if (i < to - 1)
+                    //if (i < to - 1)
                         leftWidth += 1;
                 }
 
@@ -138,7 +138,7 @@ namespace TreeUI
                     rigthWidth += GetWidth(node.Nodes[i]);
 
                     //space
-                    if (i < cnt - 1)
+                    //if (i < cnt - 1)
                         rigthWidth += 1;
                 }
             }
@@ -191,16 +191,16 @@ namespace TreeUI
             for (int i = 0; i < n*2; i++)
             {
                 RowDefinition row = new RowDefinition();
-                row.Height = GridLength.Auto;
-                row.Height = new GridLength(100);
+                //row.Height = GridLength.Auto;
+                //row.Height = new GridLength(50);
                 MainGrid.RowDefinitions.Add(row);
             }
 
             for (int i = 0; i < m; i++)
             {
                 ColumnDefinition column = new ColumnDefinition();
-                column.Width = GridLength.Auto;
-                column.Width = new GridLength(100);
+                //column.Width = GridLength.Auto;
+                //column.Width = new GridLength(100);
                 MainGrid.ColumnDefinitions.Add(column);
             }
 
@@ -221,20 +221,63 @@ namespace TreeUI
                         {
                             foreach(S_Node children in node.Nodes)
                             {
+                                int ii = children.Height;
+                                int jj = children.StartPosition;
+
+                                int di = Math.Abs(ii - i) - 1;
                                 
+
+                                if (jj > j)
+                                {
+                                    var path = GetPath(new Point(0, 0), new Point(1, 1));
+                                    int dj = jj - j - 1;
+                                    int column = j + 1;
+                                    if (dj > 0)
+                                    {
+                                        Grid.SetColumnSpan(path, dj);
+                                        Grid.SetColumn(path, column);
+                                    }
+                                    else
+                                    {
+                                        Grid.SetColumn(path, column);
+
+                                    }
+                                    Grid.SetRow(path, i * 2 + 1);
+                                    MainGrid.Children.Add(path);
+
+                                }
+                                else if (j > jj)
+                                {
+                                    //left
+                                    var path = GetPath(new Point(0, 1), new Point(1, 0));
+                                    int dj = j - jj - 1;
+                                    int column = j - 1;
+                                    if (dj > 0)
+                                    {
+                                        Grid.SetColumnSpan(path, dj);
+                                        Grid.SetColumn(path, column - dj  + 1);
+                                    } else
+                                    {
+                                        Grid.SetColumn(path, column);
+
+                                    }
+                                    Grid.SetRow(path, i * 2 + 1);
+                                    MainGrid.Children.Add(path);
+
+
+                                } 
+                                else
+                                {
+                                    //mid
+                                    var path = GetPath(new Point(0, 0), new Point(0, 1));
+                                    Grid.SetRow(path, i * 2 + 1);
+                                    Grid.SetColumn(path, j);
+                                    MainGrid.Children.Add(path);
+                                }
+
+
                             }
                         }
-                        Path path = new Path();
-                        path.Data = new LineGeometry(new Point(0, 1), new Point(1, 0));
-                        path.HorizontalAlignment = HorizontalAlignment.Stretch;
-                        path.VerticalAlignment = VerticalAlignment.Stretch;
-                        path.Stretch = Stretch.Fill;
-                        path.StrokeThickness = 4;
-                        path.Stroke = Brushes.Black;
-                        path.Fill = Brushes.MediumSlateBlue;
-                        Grid.SetRow(path, i * 2 + 1);
-                        Grid.SetColumn(path, j);
-                        MainGrid.Children.Add(path);
 
                         Grid.SetRow(label, i*2);
                         Grid.SetColumn(label, j);
@@ -242,9 +285,22 @@ namespace TreeUI
                     }
                 }
             }
-            MainGrid.ShowGridLines = true;
+            MainGrid.ShowGridLines = !true;
         }
 
+        private Path GetPath(Point start, Point end)
+        {
+            Path path = new Path();
+            path.Data = new LineGeometry(start, end);
+            path.HorizontalAlignment = HorizontalAlignment.Stretch;
+            path.VerticalAlignment = VerticalAlignment.Stretch;
+            path.Stretch = Stretch.Fill;
+            path.StrokeThickness = 4;
+            path.Stroke = Brushes.Black;
+            path.Fill = Brushes.MediumSlateBlue;
+            return path;
+
+        }
         private void RegisterNode(S_Node node)
         {
             matrix[node.Height, node.StartPosition] = node;
@@ -254,7 +310,7 @@ namespace TreeUI
             int cnt = node.Nodes.Count;
             if (cnt % 2 == 0)
             {
-                int sPos = 0;
+                int sPos = 1;
                 int to = cnt / 2;
                 for (int i = to - 1; i >= 0; i--)
                 {
@@ -264,7 +320,7 @@ namespace TreeUI
                     RegisterNode(curNode);
                 }
 
-                sPos = 0;
+                sPos = 1;
                 int from = cnt / 2;
                 for (int i = from; i < cnt; i++)
                 {
@@ -310,7 +366,5 @@ namespace TreeUI
                 Dfs(children);
             }
         }
-
-
     }
 }
