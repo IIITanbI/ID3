@@ -8,12 +8,12 @@ using System.Threading.Tasks;
 
 namespace ID3
 {
-    enum AttributeType
+    public enum AttributeType
     {
         Discrete,
         Continuous
     }
-    interface IItemAttribute : IComparable
+    public interface IItemAttribute : IComparable
     {
         string Name { get; set; }
         AttributeType AttributeType { get; }
@@ -26,7 +26,7 @@ namespace ID3
 
     //    private T _value = default(T);
     //    public Type Type { get; private set; }
-       
+
 
     //    public ItemAttribute(string name, T value, AttributeType attributeType = AttributeType.Discrete)
     //    {
@@ -51,7 +51,7 @@ namespace ID3
     //    }
     //    public AttributeType AttributeType { get; set; } = AttributeType.Discrete;
 
-        
+
 
     //    public int CompareTo(IItemAttribute other)
     //    {
@@ -68,7 +68,7 @@ namespace ID3
     //        return this._value.CompareTo((T)other);
     //    }
     //}
-    class DiscreteAttribute<T> : IItemAttribute where T : IComparable<T>
+    public class DiscreteAttribute<T> : IItemAttribute where T : IComparable<T>
     {
         static ISet<T> allowedValues { get; set; } = new HashSet<T>();
 
@@ -115,7 +115,7 @@ namespace ID3
             return this._value.CompareTo((T)other);
         }
     }
-    class ContinuousAttribute : IItemAttribute
+    public class ContinuousAttribute : IItemAttribute
     {
 
         public ContinuousAttribute(string name, IComparable value)
@@ -148,29 +148,35 @@ namespace ID3
         }
     }
 
-    class Item
+    public class Item
     {
         public Dictionary<string, IItemAttribute> Attributes { get; set; } = new Dictionary<string, IItemAttribute>();
     }
-    class DataSet
+    public class DataSet
     {
         public List<Item> Items { get; set; } = new List<Item>(); 
     }
 
-    class Node
+    public class Node
     {
         public string ClassificationAttributeName { get; set; }
         //public Dictionary<string, IItemAttribute> AllowedAttributes { get; set; } = new Dictionary<string, IItemAttribute>();
-
 
         public object Category { get; set; }
         public string SplitAttribute { get; set; }
         public object SplitValue { get; set; }
 
+        public Node Root { get; private set; }
+
         public DataSet Data { get; set; }
         public List<Node> Nodes { get; private set; } = new List<Node>();
 
         public void Build()
+        {
+            this.Build(null);
+        }
+
+        protected void Build(Node root)
         {
             double initEntropy = Utility.Entropy(Data, ClassificationAttributeName);
 
@@ -279,15 +285,51 @@ namespace ID3
                 node.ClassificationAttributeName = ClassificationAttributeName;
                 node.SplitValue = set.Items.FirstOrDefault().Attributes[bestSplitAttribute].RowValue;
                 Nodes.Add(node);
-                node.Build();
+                node.Build(root ?? this);
             }
         }
-
-
+    }
+    public class Tree
+    {
+        public Node Root { get; set; }
     }
 
+    public class Config
+    {
+        private Dictionary<string, Tuple<AttributeType, Type>> _attributeMap = new Dictionary<string, Tuple<AttributeType, Type>>();
+        public Dictionary<Tree, Dictionary<string, Tuple<AttributeType, Type>>> _treeMap = new Dictionary<Tree, Dictionary<string, Tuple<AttributeType, Type>>>();
 
-    
+
+        public Config()
+        {
+
+        }
+
+        public bool RegisterAttribute(string attributeName, AttributeType attributeType, Type valueType)
+        {
+            if (_attributeMap.ContainsKey(attributeName))
+            {
+                return false;
+            }
+
+            _attributeMap[attributeName] = new Tuple<AttributeType, Type>(attributeType, valueType);
+            return true;
+        }
+
+        public Test test { get; set; }
+
+        public class Test
+        {
+            public Test()
+            {
+                
+            }
+            public void Temp()
+            {
+
+            }
+        }
+    }
 
     static class Utility
     {
@@ -406,10 +448,13 @@ namespace ID3
             return gain;
         }
     }
+
     class Program
     {
         static void Main(string[] args) 
         {
+            Config tree = new Config();
+            Config.Test a = new Config.Test();
 
             DataSet set = new DataSet();
             DataSet set1 = new DataSet();
@@ -488,10 +533,6 @@ namespace ID3
             res += 2.0 / 5.0 * Math.Log(5.0 / 2.0, 2);
 
 
-            IComparable a = 3;
-            object b = 3;
-
-            object c = (dynamic)a + (dynamic)b;
             //var mapping = new Dictionary<IItemAttribute, int>();
             //mapping.Add(new ItemAttribute<int>("2", 2), 2);
             //mapping.Add(new ItemAttribute<int>("1", 1), 1);
