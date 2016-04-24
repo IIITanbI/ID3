@@ -24,15 +24,9 @@ namespace TreeUI
         Tree curTree = null;
         public MainWindow(Tree tree)
         {
-            this.Activated += MainWindow_Activated;
             InitializeComponent();
             curTree = tree;
-            //DrawTree(tree);
-        }
-
-        private void MainWindow_Activated(object sender, EventArgs e)
-        {
-            DrawTree(curTree);
+            DrawTree(tree);
         }
 
         public void DrawTree(Tree tree)

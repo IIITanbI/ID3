@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -11,55 +12,127 @@ namespace DT_Algorithm
         Discrete,
         Continuous
     }
-    public interface IItemAttribute : IComparable
+    public interface IItemAttribute
     {
         string Name { get; set; }
         AttributeType AttributeType { get; }
-        object RowValue { get; set; }
+        IComparable Value { get; set; }
     }
 
     public class MyAttribute : IItemAttribute
     {
+        public string Name { get; set; }
+        public IComparable Value { get; set; }
+        public AttributeType AttributeType { get; set; } = AttributeType.Discrete;
+
         public MyAttribute(string name, IComparable value)
         {
             this.Name = name;
-            this.RowValue = value;
+            this.Value = value;
         }
 
-        public string Name { get; set; }
-        public object RowValue { get; set; }
-
-        public AttributeType AttributeType { get; set; } = AttributeType.Discrete;
-
-        public int CompareTo(object obj)
+        public MyAttribute(string name, IComparable value, AttributeType attributeType)
         {
-            if (RowValue.GetType() != obj.GetType())
-                throw new ArgumentException("Types are not equal");
-
-            return ((IComparable)this.RowValue).CompareTo(obj);
+            this.Name = name;
+            this.Value = value;
+            this.AttributeType = attributeType;
         }
     }
 
     public class Item
     {
         public Dictionary<string, IItemAttribute> Attributes { get; set; } = new Dictionary<string, IItemAttribute>();
+
+        public override string ToString()
+        {
+            string res = "";
+
+            int pad = 10;
+            foreach(var attr in Attributes.Values)
+            {
+                res += attr.Name.PadRight(pad);
+            }
+            res += Environment.NewLine;
+
+            foreach (var attr in Attributes.Values)
+            {
+                res += attr.Value.ToString().PadRight(pad);
+            }
+
+            return res;
+        }
     }
     public class DataSet
     {
         public List<Item> Items { get; set; } = new List<Item>();
+        public void Print(int pad)
+        {
+            foreach (var attribute in Items[0].Attributes.Values)
+            {
+                Console.Write(attribute.Name.PadRight(pad));
+            }
+            Console.WriteLine();
+            foreach (Item item in Items)
+            {
+                foreach (var attribute in item.Attributes.Values)
+                {
+                    Console.Write(attribute.Value?.ToString().PadRight(pad));
+                }
+                Console.WriteLine();
+            }
+        }
     }
 
 
     public class Classification
     {
-        //class - percent
-        public List<Tuple<object, double>> Result = new List<Tuple<object, double>>();
+        private List<ClassificationItem> result = new List<ClassificationItem>();
+        public List<ClassificationItem> Result
+        {
+            get
+            {
+                result.Sort();
+                result.Reverse();
+                return result;
+            }
+            set
+            {
+                result = value;
+            }
+        }
+
+        public override string ToString()
+        {
+            string res = "";
+            Result.Sort();
+            Result.Reverse();
+            foreach (var citem in Result)
+            {
+                res += citem.ToString() + "\n";
+            }
+            return res;
+        }
     }
+    public class ClassificationItem : IComparable<ClassificationItem>
+    {
+        public object Value { get; set; }
+        public double Percent { get; set; }
+
+        public double Count { get; set; }
+
+        public int CompareTo(ClassificationItem other)
+        {
+            return this.Percent.CompareTo(other.Percent);
+        }
+        public override string ToString()
+        {
+            return $"{Value} : {Percent} : {Count}";
+        }
+    }
+
+
     public class Node
     {
-        public string ClassificationAttributeName { get; set; }
-        //public Dictionary<string, IItemAttribute> AllowedAttributes { get; set; } = new Dictionary<string, IItemAttribute>();
-
         public Tree Tree { get; }
         public Node(Tree tree, int height)
         {
@@ -67,15 +140,77 @@ namespace DT_Algorithm
             this.Height = height;
         }
 
-        public Classification Category { get; set; } = new Classification();
-        public string SplitAttribute { get; set; }
-        public object SplitValue { get; set; }
+        public Classification Classification { get; set; } = new Classification();
+        public string SplitAttributeName { get; set; }
+        public IComparable SplitValue { get; set; }
+        public IComparable SplitValueThreshold { get; set; }
+        public int SplitValueThresholdSign { get; set; } = 1;
+
 
         public DataSet Data { get; set; }
         public List<Node> Nodes { get; private set; } = new List<Node>();
 
-
         public int Height { get; }
+
+
+        private bool _crossValidate = false;
+        public bool EnableCrossValidate
+        {
+            get
+            {
+                return this._crossValidate;
+            }
+            set
+            {
+                this._crossValidate = value;
+                foreach (Node node in this.Nodes)
+                    node.EnableCrossValidate = this._crossValidate;
+            }
+        }
+
+        public int RightValidate { get; set; } = 0;
+        public int WrongValidate { get; set; } = 0;
+
+
+        private void ClassifyNode()
+        {
+            if (this.Nodes.Count == 0)
+            {
+                Classification.Result.Add(new ClassificationItem()
+                {
+                    Value = Data.Items.FirstOrDefault().Attributes[Tree.ClassificationAttributeName].Value,
+                    Percent = 100,
+                    Count = Data.Items.Count
+                });
+            }
+            else
+            {
+                var map = new Dictionary<object, double>();
+                foreach (var item in this.Data.Items)
+                {
+                    if (item.Attributes.ContainsKey(Tree.ClassificationAttributeName))
+                    {
+                        object value = item.Attributes[Tree.ClassificationAttributeName].Value;
+                        if (!map.ContainsKey(value))
+                            map[value] = 0;
+                        map[value]++;
+                    }
+                }
+
+                double total = map.Values.Sum();
+                foreach (var pair in map)
+                {
+                    object value = pair.Key;
+                    double count = pair.Value;
+                    this.Classification.Result.Add(new ClassificationItem()
+                    {
+                        Value = value,
+                        Percent = count / total,
+                        Count = count
+                    });
+                }
+            }
+        }
         public void Build()
         {
             double initEntropy = Utility.Entropy(Data, Tree.ClassificationAttributeName);
@@ -83,9 +218,7 @@ namespace DT_Algorithm
             //if set consist items with one category
             if (initEntropy == 0)
             {
-                Category.Result.Clear();
-                Category.Result.Add(new Tuple<object, double>(Data.Items.FirstOrDefault().Attributes[ClassificationAttributeName].RowValue, 100));
-
+                ClassifyNode();
                 return;
             }
 
@@ -96,6 +229,8 @@ namespace DT_Algorithm
             string bestSplitAttribute = null;
             double bestSplitGain = 0;
 
+            IComparable bestSplitThreshold = null;
+
             #region Split and count best gain
             foreach (var attr in Tree._attributeMap)
             {
@@ -105,19 +240,19 @@ namespace DT_Algorithm
                 string attrName = attr.Key;
                 AttributeType attrType = attr.Value.Item1;
 
-                if (attrName == this.ClassificationAttributeName) continue;
+                if (attrName == Tree.ClassificationAttributeName) continue;
 
                 #region Continuous Attribute
                 if (attrType == AttributeType.Continuous)
                 {
-                    var set = new SortedSet<object>();
+                    var set = new SortedSet<IComparable>();
 
                     foreach (var it in Data.Items)
                     {
                         IItemAttribute at = null;
                         if (it.Attributes.TryGetValue(attrName, out at))
                         {
-                            var val = at.RowValue;
+                            var val = at.Value;
                             if (val != null)
                             {
                                 nonSkippedSet.Items.Add(it);
@@ -134,7 +269,7 @@ namespace DT_Algorithm
                     foreach (var threshold in set)
                     {
                         var split = Utility.SplitContinuous(nonSkippedSet, attrName, threshold);
-                        double gain = initEntropy - Utility.Entropy(split, ClassificationAttributeName);
+                        double gain = initEntropy - Utility.Entropy(split, Tree.ClassificationAttributeName);
 
                         if (gain > bestSplitGain)
                         {
@@ -144,6 +279,8 @@ namespace DT_Algorithm
 
                             bestSplitSkippedSet = skippedSet;
                             bestSplitNonSkippedSet = nonSkippedSet;
+
+                            bestSplitThreshold = threshold;
                         }
                     }
                 }
@@ -156,7 +293,7 @@ namespace DT_Algorithm
                         IItemAttribute at = null;
                         if (it.Attributes.TryGetValue(attrName, out at))
                         {
-                            var val = at.RowValue;
+                            var val = at.Value;
                             if (val != null)
                                 nonSkippedSet.Items.Add(it);
                             else
@@ -167,7 +304,7 @@ namespace DT_Algorithm
                     }
 
                     var split = Utility.SplitIDiscrete(Data, attrName);
-                    double gain = initEntropy - Utility.Entropy(split, ClassificationAttributeName);
+                    double gain = initEntropy - Utility.Entropy(split, Tree.ClassificationAttributeName);
                     gain *= 1.0 * nonSkippedSet.Items.Count / Data.Items.Count;
 
                     foreach (var set in split)
@@ -175,8 +312,8 @@ namespace DT_Algorithm
                         var ls = new List<object>();
                         foreach (var it in set.Items)
                         {
-                            var at = it.Attributes[ClassificationAttributeName];
-                            var value = at.RowValue;
+                            var at = it.Attributes[Tree.ClassificationAttributeName];
+                            var value = at.Value;
                             ls.Add(value);
                         }
                     }
@@ -202,8 +339,8 @@ namespace DT_Algorithm
 
                 foreach (var item in Data.Items)
                 {
-                    var attr = item.Attributes[ClassificationAttributeName];
-                    var value = attr.RowValue;
+                    var attr = item.Attributes[Tree.ClassificationAttributeName];
+                    var value = attr.Value;
 
                     if (!mapping.ContainsKey(value))
                         mapping[value] = 0;
@@ -221,9 +358,14 @@ namespace DT_Algorithm
                         res = it.Key;
                     }
 
-                    Category.Result.Add(new Tuple<object, double>(it.Key, 100.0 * it.Value / Data.Items.Count));
+                    Classification.Result.Add(new ClassificationItem()
+                    {
+                        Value = it.Key,
+                        Percent = 100.0 * it.Value / Data.Items.Count,
+                        Count = it.Value
+                    });
                 }
-                SplitAttribute = "none";
+                SplitAttributeName = "none";
                 return;
             }
             #endregion
@@ -244,15 +386,171 @@ namespace DT_Algorithm
             }
             #endregion
 
-            this.SplitAttribute = bestSplitAttribute;
-            foreach (var set in bestSplit)
+            this.SplitAttributeName = bestSplitAttribute;
+
+            if (Tree._attributeMap[this.SplitAttributeName].Item1 == AttributeType.Discrete)
             {
-                Node node = new Node(this.Tree, this.Height + 1);
-                node.Data = set;
-                node.ClassificationAttributeName = ClassificationAttributeName;
-                node.SplitValue = set.Items.FirstOrDefault().Attributes[bestSplitAttribute].RowValue;
-                node.Build();
-                Nodes.Add(node);
+                foreach (var set in bestSplit)
+                {
+                    Node node = new Node(this.Tree, this.Height + 1);
+                    node.Data = set;
+                    node.SplitValue = set.Items.FirstOrDefault().Attributes[this.SplitAttributeName].Value;
+                    node.Build();
+                    Nodes.Add(node);
+                }
+            }
+            else
+            {
+                int count = -1;
+                foreach (var set in bestSplit)
+                {
+                    Node node = new Node(this.Tree, this.Height + 1);
+                    node.Data = set;
+                    node.SplitValueThreshold = bestSplitThreshold;
+                    node.SplitValueThresholdSign = count;
+                    node.Build();
+                    Nodes.Add(node);
+                    count += 2;
+                }
+            }
+            ClassifyNode();
+        }
+
+        public Classification Classify(Item item)
+        {
+            if (this.Nodes.Count == 0)
+            {
+                if (EnableCrossValidate)
+                {
+                    object value = this.Classification.Result.FirstOrDefault()?.Value;
+                    if (value == null)
+                        throw new NullReferenceException();
+
+                    if (item.Attributes[Tree.ClassificationAttributeName].Value.Equals(value))
+                        this.RightValidate++;
+                    else
+                        this.WrongValidate++;
+                }
+                return this.Classification;
+            }
+
+            var attr = item.Attributes[this.SplitAttributeName];
+            if (attr.Value == null)
+            {
+                var map = new Dictionary<object, double>();
+                foreach (var node in this.Nodes)
+                {
+                    var cls = node.Classify(item);
+                    foreach (var clsItem in cls.Result)
+                    {
+                        object value = clsItem.Value;
+                        double count = clsItem.Count;
+
+                        if (!map.ContainsKey(value))
+                            map[value] = 0;
+                        map[value] += count;
+                    }
+                }
+
+                double total = map.Values.Sum();
+                Classification res = new Classification();
+                foreach (var pair in map)
+                {
+                    object value = pair.Key;
+                    double count = pair.Value;
+                    res.Result.Add(new ClassificationItem()
+                    {
+                        Value = value,
+                        Percent = count / total,
+                        Count = count
+                    });
+                }
+                return res;
+            }
+            else
+            {
+
+                Node node;
+                if (attr.AttributeType == AttributeType.Discrete)
+                {
+                    node = this.Nodes.FirstOrDefault(n => n.SplitValue.CompareTo(attr.Value) == 0);
+                }
+                else
+                {
+                     node = this.Nodes.FirstOrDefault(n =>
+                    {
+                        var _item = n.Data.Items.Where(x => x.Attributes[this.SplitAttributeName] != null).FirstOrDefault();
+                        if (n.SplitValueThresholdSign == -1)
+                        {
+                            return attr.Value.CompareTo(n.SplitValueThreshold) <= 0;
+                        }
+                        else
+                        {
+                            return attr.Value.CompareTo(n.SplitValueThreshold) > 0;
+                        }
+                    });
+                }
+                if (node != null)
+                {
+                    return node.Classify(item);
+                }
+                else
+                {
+                    return this.Classification;
+                }
+            }
+        }
+
+
+
+        public double Prunning(double z)
+        {
+            if (this.Nodes.Count == 0)
+            {
+                double n = WrongValidate + RightValidate;
+                double f = 1.0 * WrongValidate / n;
+                //p = f +- delt
+                //delt = z*sqrt( f*(1-f) / N )
+                double delt = z * Math.Sqrt(f * (1 - f) / n);
+                double up = f + delt;
+
+                return up;
+            }
+            {
+                double totalError = 0;
+                int right = 0;
+                int wrong = 0;
+                foreach (Node node in this.Nodes)
+                {
+                    double t = node.Prunning(z);
+                    totalError += t;
+
+                    right += node.RightValidate;
+                    wrong += node.WrongValidate;
+                }
+                double averageError = totalError / this.Nodes.Count;
+
+                double n = wrong + right;
+                double f = 1.0 * wrong / n;
+                //p = f +- delt
+                //delt = z*sqrt( f*(1-f) / N )
+                double delt = z * Math.Sqrt(f * (1 - f) / n);
+                double up = f + delt;
+
+                this.WrongValidate = wrong;
+                this.RightValidate = right;
+
+                if (up < averageError)
+                {
+                    //pruning node
+                    this.Nodes.Clear();
+                    return up;
+                }
+                else
+                {
+                    //no
+                    return averageError;
+                }
             }
         }
     }
@@ -261,10 +559,36 @@ namespace DT_Algorithm
     {
         //<string, Tuple<Attr type, Value type>>
         internal Dictionary<string, Tuple<AttributeType, Type>> _attributeMap = new Dictionary<string, Tuple<AttributeType, Type>>();
-        public string ClassificationAttributeName { get; set; }
+
+        private string _classificationAttributeName;
+        public string ClassificationAttributeName
+        {
+            get
+            {
+                return _classificationAttributeName;
+            }
+            set
+            {
+                _classificationAttributeName = value?.ToLower();
+            }
+        }
 
         public DataSet Data { get; set; }
         public Node Root { get; private set; }
+        private bool _crossValidate = false;
+        public bool EnableCrossValidate
+        {
+            get
+            {
+                return this._crossValidate;
+            }
+            set
+            {
+                this._crossValidate = value;
+                Root.EnableCrossValidate = this._crossValidate;
+            }
+        }
+
 
         private void BuildAttributeMap()
         {
@@ -284,14 +608,14 @@ namespace DT_Algorithm
                             throw new ArgumentException($"Attribute {attribute.Name} of {item}  have different attribute types : {attributeType} != {attribute.AttributeType}");
                         }
 
-                        if (attribute.RowValue != null && valueType != attribute.RowValue.GetType())
+                        if (attribute.Value != null && valueType != attribute.Value.GetType())
                         {
-                            throw new ArgumentException($"Attribute {attribute.Name} of {item}  have different type of values : {valueType} != {attribute.RowValue.GetType()}");
+                            throw new ArgumentException($"Attribute {attribute.Name} of {item}  have different type of values : {valueType} != {attribute.Value.GetType()}");
                         }
                     }
                     else
                     {
-                        _attributeMap.Add(attribute.Name, new Tuple<AttributeType, Type>(attribute.AttributeType, attribute.RowValue.GetType()));
+                        _attributeMap.Add(attribute.Name, new Tuple<AttributeType, Type>(attribute.AttributeType, attribute.Value.GetType()));
                     }
                 }
             }
@@ -301,9 +625,20 @@ namespace DT_Algorithm
         {
             BuildAttributeMap();
             Root = new Node(this, 0);
-            Root.ClassificationAttributeName = this.ClassificationAttributeName;
             Root.Data = this.Data;
             Root.Build();
+        }
+
+        public Classification Classify(Item item)
+        {
+            var res = Root.Classify(item);
+            return res;
+        }
+
+        
+        public void Prunning(double z)
+        {
+            Root.Prunning(z);
         }
     }
 
@@ -322,10 +657,10 @@ namespace DT_Algorithm
             foreach (var item in set.Items)
             {
                 var attr = item.Attributes[attributeName];
-                var value = attr.RowValue;
+                var value = attr.Value;
 
                 //<= threshold
-                if (((IComparable)value).CompareTo(threshold) <= 0)
+                if (value.CompareTo(threshold) <= 0)
                 {
                     res[0].Items.Add(item);
                 }
@@ -348,7 +683,7 @@ namespace DT_Algorithm
             foreach (var item in set.Items)
             {
                 var attr = item.Attributes[attributeName];
-                var value = attr.RowValue;
+                var value = attr.Value;
 
                 if (!mapping.ContainsKey(value))
                     mapping[value] = new List<Item>();
@@ -375,7 +710,7 @@ namespace DT_Algorithm
             foreach (var item in set.Items)
             {
                 var attr = item.Attributes[classificationAttributeName];
-                var value = attr.RowValue;
+                var value = attr.Value;
 
                 if (!mapping.ContainsKey(value))
                     mapping[value] = 0;

@@ -178,7 +178,7 @@ namespace TreeUI
             treeStats = new TreeStats(tree);
             int total = GetWidth(treeStats.Root);
 
-            int n = treeStats.MaxHeight * 2 - 1;
+            int n = (treeStats.MaxHeight + 1) * 2 - 1;
             int m = total;
             matrix = new S_Node[n, m];
 
@@ -188,11 +188,12 @@ namespace TreeUI
 
             Dfs(root);
 
-            for (int i = 0; i < n*2; i++)
+            for (int i = 0; i < n; i++)
             {
                 RowDefinition row = new RowDefinition();
                 //row.Height = GridLength.Auto;
                 //row.Height = new GridLength(50);
+                row.MinHeight = 50;
                 MainGrid.RowDefinitions.Add(row);
             }
 
@@ -201,6 +202,7 @@ namespace TreeUI
                 ColumnDefinition column = new ColumnDefinition();
                 //column.Width = GridLength.Auto;
                 //column.Width = new GridLength(100);
+                column.MinWidth = 50;
                 MainGrid.ColumnDefinitions.Add(column);
             }
 
@@ -212,9 +214,12 @@ namespace TreeUI
                     {
                         S_Node node = matrix[i, j];
                         Label label = new Label();
-                        string res = $"split value: {node.Node.SplitValue} \n" +
-                            $"split attr: {node.Node.SplitAttribute} \n" +
-                            $"res: {node.Node.Category.Result.FirstOrDefault()?.Item1}  {node.Node.Category.Result.FirstOrDefault()?.Item2}";
+                        string res = 
+                            $"split value: {node.Node.SplitValue} \n" +
+                            $"split threshold: {node.Node.SplitValueThreshold} \n" +
+                            $"split sign: {node.Node.SplitValueThresholdSign} \n" +
+                            $"split attr: {node.Node.SplitAttributeName} \n" +
+                            $"res: {node.Node.Classification.Result.FirstOrDefault()?.Value}  {node.Node.Classification.Result.FirstOrDefault()?.Percent}";
                         label.Content = res;
 
                         if (node.Nodes.Count > 0)
@@ -240,7 +245,6 @@ namespace TreeUI
                                     else
                                     {
                                         Grid.SetColumn(path, column);
-
                                     }
                                     Grid.SetRow(path, i * 2 + 1);
                                     MainGrid.Children.Add(path);
@@ -259,12 +263,9 @@ namespace TreeUI
                                     } else
                                     {
                                         Grid.SetColumn(path, column);
-
                                     }
                                     Grid.SetRow(path, i * 2 + 1);
                                     MainGrid.Children.Add(path);
-
-
                                 } 
                                 else
                                 {
@@ -285,7 +286,7 @@ namespace TreeUI
                     }
                 }
             }
-            MainGrid.ShowGridLines = !true;
+            MainGrid.ShowGridLines = true;
         }
 
         private Path GetPath(Point start, Point end)

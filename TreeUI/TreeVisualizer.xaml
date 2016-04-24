@@ -6,10 +6,9 @@
              xmlns:local="clr-namespace:TreeUI"
              mc:Ignorable="d" 
              d:DesignHeight="300" d:DesignWidth="300">
-    <ScrollViewer HorizontalScrollBarVisibility="Auto">
-        <Grid x:Name="MainGrid">
 
-        </Grid>
+    <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Visible">
+        <Grid x:Name="MainGrid"></Grid>
     </ScrollViewer>
 
 </UserControl>
