@@ -58,9 +58,9 @@
     </Content>
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\DT Algorithm\DT Algorithm.csproj">
-      <Project>{7c2e2227-7f8c-476c-8e9a-2ec8a84770a6}</Project>
-      <Name>DT Algorithm</Name>
+    <ProjectReference Include="..\C4.5\C4.5.csproj">
+      <Project>{2fed6c14-c292-49ec-aca2-887b0d8546f1}</Project>
+      <Name>C4.5</Name>
     </ProjectReference>
     <ProjectReference Include="..\TreeUI\TreeUI.csproj">
       <Project>{f2f0930a-8c3c-4163-9d0a-413625e92327}</Project>

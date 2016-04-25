@@ -9,7 +9,8 @@ namespace ID3
 {
     public enum AttributeType
     {
-        Discrete
+        Discrete,
+        Continuous
     }
     public interface IItemAttribute
     {
@@ -142,12 +143,34 @@ namespace ID3
         public Classification Classification { get; set; } = new Classification();
         public string SplitAttributeName { get; set; }
         public IComparable SplitValue { get; set; }
+        public IComparable SplitValueThreshold { get; set; }
+        public int SplitValueThresholdSign { get; set; } = 1;
 
 
         public DataSet Data { get; set; }
         public List<Node> Nodes { get; private set; } = new List<Node>();
 
         public int Height { get; }
+
+
+        private bool _crossValidate = false;
+        public bool EnableCrossValidate
+        {
+            get
+            {
+                return this._crossValidate;
+            }
+            set
+            {
+                this._crossValidate = value;
+                foreach (Node node in this.Nodes)
+                    node.EnableCrossValidate = this._crossValidate;
+            }
+        }
+
+        public int RightValidate { get; set; } = 0;
+        public int WrongValidate { get; set; } = 0;
+
 
         private void ClassifyNode()
         {
@@ -206,6 +229,8 @@ namespace ID3
             string bestSplitAttribute = null;
             double bestSplitGain = 0;
 
+            IComparable bestSplitThreshold = null;
+
             #region Split and count best gain
             foreach (var attr in Tree._attributeMap)
             {
@@ -217,6 +242,49 @@ namespace ID3
 
                 if (attrName == Tree.ClassificationAttributeName) continue;
 
+                #region Continuous Attribute
+                if (attrType == AttributeType.Continuous)
+                {
+                    var set = new SortedSet<IComparable>();
+
+                    foreach (var it in Data.Items)
+                    {
+                        IItemAttribute at = null;
+                        if (it.Attributes.TryGetValue(attrName, out at))
+                        {
+                            var val = at.Value;
+                            if (val != null)
+                            {
+                                nonSkippedSet.Items.Add(it);
+                                set.Add(val);
+                            }
+                            else
+                                skippedSet.Items.Add(it);
+                        }
+                        else
+                            skippedSet.Items.Add(it);
+                    }
+
+
+                    foreach (var threshold in set)
+                    {
+                        var split = Utility.SplitContinuous(nonSkippedSet, attrName, threshold);
+                        double gain = initEntropy - Utility.Entropy(split, Tree.ClassificationAttributeName);
+
+                        if (gain > bestSplitGain)
+                        {
+                            bestSplitGain = gain;
+                            bestSplitAttribute = attrName;
+                            bestSplit = split;
+
+                            bestSplitSkippedSet = skippedSet;
+                            bestSplitNonSkippedSet = nonSkippedSet;
+
+                            bestSplitThreshold = threshold;
+                        }
+                    }
+                }
+                #endregion
                 #region Discrete Attribute
                 if (attrType == AttributeType.Discrete)
                 {
@@ -320,15 +388,31 @@ namespace ID3
 
             this.SplitAttributeName = bestSplitAttribute;
 
-            foreach (var set in bestSplit)
+            if (Tree._attributeMap[this.SplitAttributeName].Item1 == AttributeType.Discrete)
             {
-                Node node = new Node(this.Tree, this.Height + 1);
-                node.Data = set;
-                node.SplitValue = set.Items.FirstOrDefault().Attributes[this.SplitAttributeName].Value;
-                node.Build();
-                Nodes.Add(node);
+                foreach (var set in bestSplit)
+                {
+                    Node node = new Node(this.Tree, this.Height + 1);
+                    node.Data = set;
+                    node.SplitValue = set.Items.FirstOrDefault().Attributes[this.SplitAttributeName].Value;
+                    node.Build();
+                    Nodes.Add(node);
+                }
             }
-
+            else
+            {
+                int count = -1;
+                foreach (var set in bestSplit)
+                {
+                    Node node = new Node(this.Tree, this.Height + 1);
+                    node.Data = set;
+                    node.SplitValueThreshold = bestSplitThreshold;
+                    node.SplitValueThresholdSign = count;
+                    node.Build();
+                    Nodes.Add(node);
+                    count += 2;
+                }
+            }
             ClassifyNode();
         }
 
@@ -336,6 +420,17 @@ namespace ID3
         {
             if (this.Nodes.Count == 0)
             {
+                if (EnableCrossValidate)
+                {
+                    object value = this.Classification.Result.FirstOrDefault()?.Value;
+                    if (value == null)
+                        throw new NullReferenceException();
+
+                    if (item.Attributes[Tree.ClassificationAttributeName].Value.Equals(value))
+                        this.RightValidate++;
+                    else
+                        this.WrongValidate++;
+                }
                 if (this.Classification.Result.Sum(x => x.Percent) != 100)
                 {
 
@@ -380,7 +475,25 @@ namespace ID3
             {
 
                 Node node;
-                node = this.Nodes.FirstOrDefault(n => n.SplitValue.CompareTo(attr.Value) == 0);
+                if (attr.AttributeType == AttributeType.Discrete)
+                {
+                    node = this.Nodes.FirstOrDefault(n => n.SplitValue.CompareTo(attr.Value) == 0);
+                }
+                else
+                {
+                    node = this.Nodes.FirstOrDefault(n =>
+                    {
+                        var _item = n.Data.Items.Where(x => x.Attributes[this.SplitAttributeName] != null).FirstOrDefault();
+                        if (n.SplitValueThresholdSign == -1)
+                        {
+                            return attr.Value.CompareTo(n.SplitValueThreshold) <= 0;
+                        }
+                        else
+                        {
+                            return attr.Value.CompareTo(n.SplitValueThreshold) > 0;
+                        }
+                    });
+                }
                 if (node != null)
                 {
                     var res = node.Classify(item);
@@ -399,6 +512,64 @@ namespace ID3
 
                     }
                     return this.Classification;
+                }
+            }
+        }
+
+
+
+        public double Prunning(double z)
+        {
+            if (this.Nodes.Count == 0)
+            {
+                double n = WrongValidate + RightValidate;
+                double f = 1.0 * WrongValidate / n;
+                //p = f +- delt
+                //delt = z*sqrt( f*(1-f) / N )
+                double delt = z * Math.Sqrt(f * (1 - f) / n);
+                double up = f + delt;
+
+                if (n == 0)
+                    return 0;
+                return up;
+            }
+            {
+                double totalError = 0;
+                int right = 0;
+                int wrong = 0;
+                foreach (Node node in this.Nodes)
+                {
+                    double t = node.Prunning(z);
+                    totalError += t;
+
+                    right += node.RightValidate;
+                    wrong += node.WrongValidate;
+                }
+                double averageError = totalError / this.Nodes.Count;
+
+                double n = wrong + right;
+                double f = 1.0 * wrong / n;
+                //p = f +- delt
+                //delt = z*sqrt( f*(1-f) / N )
+                double delt = z * Math.Sqrt(f * (1 - f) / n);
+                double up = f + delt;
+
+                if (n == 0)
+                    up = 0;
+
+                this.WrongValidate = wrong;
+                this.RightValidate = right;
+
+                if (up <= averageError)
+                {
+                    //pruning node
+                    this.Nodes.Clear();
+                    return up;
+                }
+                else
+                {
+                    //no
+                    return averageError;
                 }
             }
         }
@@ -424,6 +595,19 @@ namespace ID3
 
         public DataSet Data { get; set; }
         public Node Root { get; private set; }
+        private bool _crossValidate = false;
+        public bool EnableCrossValidate
+        {
+            get
+            {
+                return this._crossValidate;
+            }
+            set
+            {
+                this._crossValidate = value;
+                Root.EnableCrossValidate = this._crossValidate;
+            }
+        }
 
 
         private void BuildAttributeMap()
@@ -469,6 +653,12 @@ namespace ID3
         {
             var res = Root.Classify(item);
             return res;
+        }
+
+
+        public void Prunning(double z)
+        {
+            Root.Prunning(z);
         }
     }
 

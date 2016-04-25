@@ -1,11 +1,10 @@
-﻿using ID3;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using DT_Algorithm;
+using ID3;
 using TreeUI;
 using System.Threading;
 
