@@ -205,7 +205,7 @@ namespace DT_Algorithm
                     this.Classification.Result.Add(new ClassificationItem()
                     {
                         Value = value,
-                        Percent = count / total,
+                        Percent = 100.0*count / total,
                         Count = count
                     });
                 }
@@ -431,6 +431,10 @@ namespace DT_Algorithm
                     else
                         this.WrongValidate++;
                 }
+                if (this.Classification.Result.Sum(x => x.Percent) != 100)
+                {
+
+                }
                 return this.Classification;
             }
 
@@ -461,7 +465,7 @@ namespace DT_Algorithm
                     res.Result.Add(new ClassificationItem()
                     {
                         Value = value,
-                        Percent = count / total,
+                        Percent = 100.0*count / total,
                         Count = count
                     });
                 }
@@ -492,10 +496,21 @@ namespace DT_Algorithm
                 }
                 if (node != null)
                 {
-                    return node.Classify(item);
+                    var res =  node.Classify(item);
+                    var summ = res.Result.Sum(x => x.Percent);
+                    if (summ != 100)
+                    {
+
+                    }
+                    return res;
                 }
                 else
                 {
+                    var summ = this.Classification.Result.Sum(x => x.Percent);
+                    if (summ != 100)
+                    {
+
+                    }
                     return this.Classification;
                 }
             }
@@ -514,6 +529,8 @@ namespace DT_Algorithm
                 double delt = z * Math.Sqrt(f * (1 - f) / n);
                 double up = f + delt;
 
+                if (n == 0)
+                    return 0;
                 return up;
             }
             {
@@ -537,10 +554,13 @@ namespace DT_Algorithm
                 double delt = z * Math.Sqrt(f * (1 - f) / n);
                 double up = f + delt;
 
+                if (n == 0)
+                    up = 0;
+
                 this.WrongValidate = wrong;
                 this.RightValidate = right;
 
-                if (up < averageError)
+                if (up <= averageError)
                 {
                     //pruning node
                     this.Nodes.Clear();

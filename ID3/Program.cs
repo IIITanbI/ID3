@@ -188,14 +188,14 @@ namespace ID3
             //set.Print(8);
 
             int mid = set.Items.Count / 2;
-            mid = 10;
+            //mid = 3;
             DataSet set1 = new DataSet();
             set1.Items = set.Items.Skip(mid).ToList();
             set.Items.RemoveRange(mid, set.Items.Count - mid);
 
             Tree tree = new Tree();
             tree.Data = set;
-            tree.ClassificationAttributeName = "VIOL";
+            tree.ClassificationAttributeName = "GENDER";
             tree.Build();
 
             Thread myThread = new Thread(new ThreadStart(() =>
@@ -204,7 +204,7 @@ namespace ID3
                 ss.ShowDialog();
             }));
             myThread.SetApartmentState(ApartmentState.STA);
-            myThread.Start();
+//            myThread.Start();
 
             tree.EnableCrossValidate = true; 
     
@@ -217,6 +217,10 @@ namespace ID3
                 var expected = item.Attributes[tree.ClassificationAttributeName].Value;
                 if (expected.CompareTo(top) == 0)
                     right++;
+                else
+                {
+
+                }
                 //else
                 //{
                 //    Console.WriteLine($"{expected} vs {top}");
@@ -231,7 +235,7 @@ namespace ID3
             double perc = 100.0 * right / set1.Items.Count;
             Console.WriteLine(perc);
 
-            tree.Prunning(1.96);
+            tree.Prunning(1.69);
             right = 0;
             foreach (var item in set1.Items)
             {
